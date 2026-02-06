@@ -141,7 +141,7 @@ opensim_pyprocessing/
 └── 
 ```
 
-## CLI Options
+## Command-Line Interface Options
 
 ```
 python run_pipeline.py --config <path>    # Specify config file (default: config.yaml)
