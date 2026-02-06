@@ -12,7 +12,7 @@ Thumbs.db
 
 # Pipeline outputs
 *_opensim/
-output/
+**/output/
 
 # User data (not distributed)
 data_c3d/
