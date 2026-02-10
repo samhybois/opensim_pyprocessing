@@ -38,6 +38,7 @@ def run_pipeline(cfg: PipelineConfig) -> None:
                     c3d_file,
                     output_dir=cfg.output_folder,
                     lab_to_opensim_transform=cfg.coordinate_transform,
+                    max_missing_samples=cfg.fill_gaps_max_missing_samples,
                 )
                 logger.info("    TRC: %s", result["trc_file"])
                 if "mot_file" in result:

@@ -25,6 +25,10 @@ steps:
 trials:
   static_pattern: "*static*"
 
+# C3D export settings
+c3d_export:
+  fill_gaps_max_missing_samples: 10  # max gap size (frames) to interpolate; 0 to disable
+
 # 4x4 lab-to-OpenSim coordinate transformation matrix (row-major)
 # Adjust this to match your motion capture lab orientation.
 # Default: x -> -z, y -> -x, z -> y (Y-up OpenSim convention)

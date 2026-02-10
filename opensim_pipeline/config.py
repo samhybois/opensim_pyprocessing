@@ -52,6 +52,9 @@ class PipelineConfig:
         default_factory=lambda: DEFAULT_TRANSFORM.copy()
     )
 
+    # C3D export settings
+    fill_gaps_max_missing_samples: int = 0
+
     # Inverse dynamics settings
     id_low_pass_cutoff: float = 6.0
 
@@ -85,6 +88,7 @@ def load_config(config_path: str | Path) -> PipelineConfig:
     paths = raw.get("paths", {})
     steps = raw.get("steps", {})
     trials = raw.get("trials", {})
+    c3d_settings = raw.get("c3d_export", {})
     id_settings = raw.get("inverse_dynamics", {})
 
     # Coordinate transform
@@ -111,5 +115,6 @@ def load_config(config_path: str | Path) -> PipelineConfig:
         },
         static_pattern=trials.get("static_pattern", "*static*"),
         coordinate_transform=transform,
+        fill_gaps_max_missing_samples=c3d_settings.get("fill_gaps_max_missing_samples", 0),
         id_low_pass_cutoff=id_settings.get("low_pass_cutoff_frequency", 6.0),
     )

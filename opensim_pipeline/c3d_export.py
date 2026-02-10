@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import opensim as osim
+from scipy.interpolate import CubicSpline
 
 from opensim_pipeline.io_utils import fix_mot_header
 from opensim_pipeline.transforms import transform_data_table
@@ -67,10 +68,96 @@ def rename_grf_columns(table: osim.TimeSeriesTable) -> None:
     table.setColumnLabels(new_labels)
 
 
+def fill_marker_gaps(
+    marker_table: osim.TimeSeriesTableVec3,
+    max_missing_samples: int,
+) -> None:
+    """Fill gaps (NaN values) in the marker table using cubic spline interpolation.
+
+    Iterates over each marker column, identifies contiguous NaN gaps up to
+    *max_missing_samples* frames wide, and fills them in-place using a cubic
+    spline fitted to the surrounding valid data.
+
+    Parameters
+    ----------
+    marker_table : osim.TimeSeriesTableVec3
+        OpenSim marker table to fill in-place.
+    max_missing_samples : int
+        Maximum gap length (in frames) to interpolate. Gaps longer than this
+        are left as NaN.
+    """
+    n_rows = marker_table.getNumRows()
+    n_cols = marker_table.getNumColumns()
+    if n_rows < 4:
+        return
+
+    # Extract all marker data into a numpy array (n_rows x n_cols x 3)
+    data = np.empty((n_rows, n_cols, 3))
+    for i in range(n_rows):
+        row = marker_table.getRowAtIndex(i)
+        for j in range(n_cols):
+            v = row[j]
+            data[i, j, :] = [v[0], v[1], v[2]]
+
+    frame_indices = np.arange(n_rows)
+
+    for col_idx in range(n_cols):
+        label = marker_table.getColumnLabel(col_idx)
+        col_data = data[:, col_idx, :]  # (n_rows, 3)
+        is_nan = np.isnan(col_data[:, 0])
+
+        if not np.any(is_nan):
+            continue
+
+        # Find contiguous NaN gaps
+        gaps_filled = 0
+        in_gap = False
+        gap_start = 0
+
+        for i in range(n_rows + 1):
+            if i < n_rows and is_nan[i]:
+                if not in_gap:
+                    gap_start = i
+                    in_gap = True
+            else:
+                if in_gap:
+                    gap_len = i - gap_start
+                    if gap_len <= max_missing_samples:
+                        # Need valid data on both sides for spline
+                        valid = ~is_nan
+                        if np.sum(valid) >= 4:
+                            for axis in range(3):
+                                cs = CubicSpline(
+                                    frame_indices[valid],
+                                    col_data[valid, axis],
+                                )
+                                col_data[gap_start:i, axis] = cs(
+                                    frame_indices[gap_start:i]
+                                )
+                            is_nan[gap_start:i] = False
+                            gaps_filled += gap_len
+                    in_gap = False
+
+        if gaps_filled > 0:
+            # Write filled values back into the marker table
+            for i in range(n_rows):
+                row = marker_table.getRowAtIndex(i)
+                row[col_idx] = osim.Vec3(
+                    float(col_data[i, 0]),
+                    float(col_data[i, 1]),
+                    float(col_data[i, 2]),
+                )
+                marker_table.setRowAtIndex(i, row)
+            logger.info(
+                "    Filled %d gap frames for marker %s", gaps_filled, label
+            )
+
+
 def export_c3d_to_trc_and_mot(
     c3d_file_path: str | Path,
     output_dir: str | Path | None = None,
     lab_to_opensim_transform: np.ndarray | None = None,
+    max_missing_samples: int = 0,
 ) -> dict[str, str]:
     """Export marker coordinates and forces from a C3D file.
 
@@ -86,6 +173,9 @@ def export_c3d_to_trc_and_mot(
     lab_to_opensim_transform : np.ndarray, optional
         4x4 homogeneous transformation matrix from lab coordinates to OpenSim
         coordinates. Defaults to ``DEFAULT_TRANSFORM``.
+    max_missing_samples : int, optional
+        Maximum gap length (in frames) to interpolate using cubic spline.
+        Set to 0 to disable gap-filling. Defaults to 0.
 
     Returns
     -------
@@ -110,6 +200,8 @@ def export_c3d_to_trc_and_mot(
 
     # Export markers to TRC
     marker_table = c3d_adapter.getMarkersTable(tables)
+    if max_missing_samples > 0:
+        fill_marker_gaps(marker_table, max_missing_samples)
     transform_data_table(marker_table, lab_to_opensim_transform)
     trc_file = str(out_dir / (c3d_path.stem + ".trc"))
     trc_adapter.write(marker_table, trc_file)

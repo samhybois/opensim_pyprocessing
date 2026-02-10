@@ -151,7 +151,7 @@ def run_scaling(
 
     # MarkerPlacer
     marker_placer = scale_tool.getMarkerPlacer()
-    marker_placer.setApply(False)
+    marker_placer.setApply(True)
     marker_placer.setMarkerFileName(str(static_trc_file))
     marker_placer.setTimeRange(time_range_arr)
     marker_placer.setOutputModelFileName(str(output_model_file))
