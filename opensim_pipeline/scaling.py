@@ -115,6 +115,9 @@ def run_scaling(
     # ModelScaler
     model_scaler = scale_tool.getModelScaler()
     model_scaler.setApply(True)
+    scaling_order = osim.ArrayStr()
+    scaling_order.append("measurements")
+    model_scaler.setScalingOrder(scaling_order)
     model_scaler.setMarkerFileName(str(static_trc_file))
     time_range_arr = osim.ArrayDouble()
     time_range_arr.append(time_range[0])

@@ -21,6 +21,5 @@ data_c3d/
 _ik_marker_errors.sto
 id_tool_setup_debug.xml
 *_external_loads.xml
+opensim.log
 
-# Validation reference files
-fichier_qui_marche/
