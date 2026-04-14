@@ -75,3 +75,34 @@ def scale_table(
         for j in range(row.size()):
             row[j] = row[j] * scale_factor
         table.setRowAtIndex(i, row)
+
+
+def scale_forces_table(
+    table: osim.TimeSeriesTableVec3, scale_factor: float
+) -> None:
+    """Scale COP and moment columns in a forces table, leaving force columns unchanged.
+
+    In a C3D forces table the column labels are ``f<n>`` (ground reaction force,
+    N), ``p<n>`` (centre of pressure, length units) and ``m<n>`` (free moment,
+    force×length units).  When the C3D file uses mm, the ``p`` and ``m`` columns
+    must be multiplied by ``scale_factor`` to convert to SI, but the ``f``
+    columns (already in N) must not be touched.
+
+    Parameters
+    ----------
+    table : osim.TimeSeriesTableVec3
+        Forces table to modify in-place (Vec3 columns, before flattening).
+    scale_factor : float
+        Factor applied to ``p*`` and ``m*`` columns (e.g. ``0.001`` for mm→m).
+    """
+    n_cols = table.getNumColumns()
+    scale_indices = [
+        j
+        for j in range(n_cols)
+        if not table.getColumnLabel(j).lower().startswith("f")
+    ]
+    for i in range(table.getNumRows()):
+        row = table.getRowAtIndex(i)
+        for j in scale_indices:
+            row[j] = row[j] * scale_factor
+        table.setRowAtIndex(i, row)

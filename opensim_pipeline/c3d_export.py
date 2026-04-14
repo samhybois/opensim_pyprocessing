@@ -10,7 +10,7 @@ import opensim as osim
 from scipy.interpolate import CubicSpline
 
 from opensim_pipeline.io_utils import fix_mot_header
-from opensim_pipeline.transforms import transform_data_table
+from opensim_pipeline.transforms import scale_forces_table, scale_table, transform_data_table
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +203,20 @@ def export_c3d_to_trc_and_mot(
     if max_missing_samples > 0:
         fill_marker_gaps(marker_table, max_missing_samples)
     transform_data_table(marker_table, lab_to_opensim_transform)
+
+    # Detect length units from C3D metadata and convert to metres if needed.
+    # Qualisys (and other systems) may export coordinates in mm. The POINT:UNITS
+    # parameter is stored by the C3DFileAdapter in the marker table metadata.
+    try:
+        c3d_units = marker_table.getTableMetaDataAsString("Units").strip().lower()
+    except Exception:
+        c3d_units = "m"
+    if c3d_units == "mm":
+        logger.info("  C3D units: mm — converting markers and forces to metres")
+        scale_table(marker_table, 0.001)
+    else:
+        logger.debug("  C3D units: %s — no unit conversion applied", c3d_units)
+
     trc_file = str(out_dir / (c3d_path.stem + ".trc"))
     trc_adapter.write(marker_table, trc_file)
     output_files["trc_file"] = trc_file
@@ -211,6 +225,11 @@ def export_c3d_to_trc_and_mot(
     try:
         forces_table_vec3 = c3d_adapter.getForcesTable(tables)
         transform_data_table(forces_table_vec3, lab_to_opensim_transform)
+        # COP (p*) and free moment (m*) columns share the same length unit as
+        # markers; ground reaction forces (f*) are always in N and need no
+        # conversion.
+        if c3d_units == "mm":
+            scale_forces_table(forces_table_vec3, 0.001)
         forces_table = forces_table_vec3.flatten()
         if forces_table.getNumRows() > 0:
             rename_grf_columns(forces_table)
